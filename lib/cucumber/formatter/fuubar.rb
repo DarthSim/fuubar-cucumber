@@ -37,7 +37,7 @@ module Cucumber
       end
 
       def after_step_result(keyword, step_match, multiline_arg, status, exception, source_indent, background, file_colon_line)
-        return if @in_background || status == :skipped
+        return if @in_background
         @state = :red if status == :failed
         if exception and [:failed, :undefined].include? status
           @io.print "\e[K" if colors_enabled?
