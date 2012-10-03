@@ -36,17 +36,19 @@ module Cucumber
         @in_background = false
       end
 
+      def before_feature_element(feature_element)
+        @scenario_outline = true if feature_element.class == Cucumber::Ast::ScenarioOutline
+      end
+
+      def after_feature_element(feature_element)
+        @scenario_outline = false if feature_element.class == Cucumber::Ast::ScenarioOutline
+      end
+
       def after_step_result(keyword, step_match, multiline_arg, status, exception, source_indent, background, file_colon_line)
-        return if @in_background
+        return if @in_background || @scenario_outline
         @state = :red if status == :failed
         if exception and [:failed, :undefined].include? status
-          @io.print "\e[K" if colors_enabled?
-          @issues_count += 1
-          @io.puts
-          @io.puts "#{@issues_count})"
-          print_exception(exception, status, 2)
-          @io.puts
-          @io.flush
+          print_exception(exception, status)
         end
         progress(status)
       end
@@ -67,11 +69,25 @@ module Cucumber
 
       def after_table_row(table_row)
         if @is_example && table_row.is_a?(Cucumber::Ast::OutlineTable::ExampleRow) && table_row.scenario_outline
-          progress(:passed, table_row.scenario_outline.instance_variable_get("@steps").count)
+          if table_row.exception and [:failed, :undefined].include? table_row.status
+            print_exception(table_row.exception, table_row.status)
+          else
+            progress(:passed, table_row.scenario_outline.instance_variable_get("@steps").count)
+          end
         end
       end
 
       protected
+        def print_exception(exception,status)
+          @io.print "\e[K" if colors_enabled?
+          @issues_count += 1
+          @io.puts
+          @io.puts "#{@issues_count})"
+          super(exception, status, 2)
+          @io.puts
+          @io.flush
+        end
+        
         def state
           @state ||= :green
         end
